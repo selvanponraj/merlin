@@ -108,7 +108,7 @@ class FinancialPerformanceMethod extends ServiceMethod {
     diffPercent: number | null,
     direction: FinancialItemDirection
   ) => {
-    if (!diffPercent) return null
+    if (diffPercent === null) return null
     if (direction === FinancialItemDirection.descending) {
       diffPercent = -diffPercent
     }

@@ -55,19 +55,35 @@ async function fmpNews(
   this: FMPLink,
   ticker?: string
 ): Promise<SecurityNewsResult[]> {
-  const newsResponse = await this.query<FMPNews[]>(
-    this.getEndpoint(`/v3/stock_news`, {
-      ...(ticker && { tickers: ticker }),
-      limit: ticker ? '10' : '200',
-    })
-  )
-  const pressReleaseResponse = ticker
-    ? await this.query<FMPPressRelease[]>(
-        this.getEndpoint(`/v3/press-releases/${ticker}`, {
+  let newsResponse: FMPNews[] = []
+  let pressReleaseResponse: FMPPressRelease[] = []
+
+  try {
+    newsResponse = await this.query<FMPNews[]>(
+      this.getStableEndpoint('/stable/news/stock', {
+        ...(ticker && { symbols: ticker }),
+        limit: ticker ? '10' : '200',
+      })
+    )
+  } catch (err) {
+    if (!this.isRestrictedError(err)) throw err
+    logger.warn('fmp > stock news endpoint is restricted for current plan')
+  }
+
+  if (ticker) {
+    try {
+      pressReleaseResponse = await this.query<FMPPressRelease[]>(
+        this.getStableEndpoint('/stable/news/press-releases', {
+          symbols: ticker,
           limit: '10',
         })
       )
-    : []
+    } catch (err) {
+      if (!this.isRestrictedError(err)) throw err
+      logger.warn('fmp > press releases endpoint is restricted for current plan')
+    }
+  }
+
   if (!newsResponse.length) {
     logger.warn('fmp > missing news')
     return []

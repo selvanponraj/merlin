@@ -33,7 +33,7 @@ const toListResult = (item: FMPList): SecurityListResult => {
 
 async function fmpSearch(this: FMPLink, input: string) {
   const response = await this.query<FMPSearch[]>(
-    this.getEndpoint(`/v3/search-ticker`, {
+    this.getStableEndpoint('/stable/search-symbol', {
       query: input,
     })
   )
@@ -49,7 +49,9 @@ async function fmpSearch(this: FMPLink, input: string) {
 
 async function fmpGet(this: FMPLink, ticker: string) {
   const response = await this.query<FMPQuote[]>(
-    this.getEndpoint(`/v3/quote/${ticker}`)
+    this.getStableEndpoint('/stable/quote', {
+      symbol: ticker,
+    })
   )
   if (!response?.length) {
     logger.warn('fmp > could not get security', { ticker })
@@ -63,9 +65,19 @@ async function fmpGet(this: FMPLink, ticker: string) {
 }
 
 async function fmpList(this: FMPLink) {
-  const response = await this.query<FMPQuote[]>(
-    this.getEndpoint(`/v3/stock/list`)
-  )
+  let response: FMPQuote[] = []
+  try {
+    response = await this.query<FMPQuote[]>(
+      this.getStableEndpoint('/stable/stock-list')
+    )
+  } catch (err) {
+    if (this.isRestrictedError(err)) {
+      logger.warn('fmp > stock list endpoint is restricted for current plan')
+      return []
+    }
+    throw err
+  }
+
   if (!response?.length) {
     return []
   }

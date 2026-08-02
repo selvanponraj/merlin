@@ -3,18 +3,19 @@ import { SecurityHistoricalPriceResult } from '@links/types'
 import { logger } from '@logger'
 
 export type FMPHistoricalPrice = {
+  symbol?: string
   date: string
   open: number
   high: number
   low: number
   close: number
-  adjClose: number
+  adjClose?: number
   volume: number
-  unadjustedVolume: number
+  unadjustedVolume?: number
   change: number
   changePercent: number
   vwap: number
-  label: string
+  label?: string
   changeOverTime: number
 }
 
@@ -22,20 +23,21 @@ const toSecurityHistoricalPrice = (
   fmpHistoricalPrice: FMPHistoricalPrice
 ): SecurityHistoricalPriceResult => {
   const volume = fmpHistoricalPrice.volume / 1e6 // Convert to millions
-  const unadjustedVolume = fmpHistoricalPrice.unadjustedVolume / 1e6 // Convert to millions
+  const unadjustedVolume =
+    (fmpHistoricalPrice.unadjustedVolume ?? fmpHistoricalPrice.volume) / 1e6 // Convert to millions
   return {
     date: fmpHistoricalPrice.date,
     open: fmpHistoricalPrice.open,
     high: fmpHistoricalPrice.high,
     low: fmpHistoricalPrice.low,
     close: fmpHistoricalPrice.close,
-    adjustedClose: fmpHistoricalPrice.adjClose,
+    adjustedClose: fmpHistoricalPrice.adjClose ?? fmpHistoricalPrice.close,
     volume: Number.isFinite(volume) ? volume : 0, // Convert to millions
     unadjustedVolume: Number.isFinite(unadjustedVolume) ? volume : 0, // Convert to millions
     change: fmpHistoricalPrice.change,
     changePercent: fmpHistoricalPrice.changePercent,
     volumeWeightedAveragePrice: fmpHistoricalPrice.vwap,
-    label: fmpHistoricalPrice.label,
+    label: fmpHistoricalPrice.label ?? fmpHistoricalPrice.date,
   }
 }
 
@@ -43,15 +45,17 @@ async function fmpHistoricalPrices(
   this: FMPLink,
   ticker: string
 ): Promise<SecurityHistoricalPriceResult[]> {
-  const response = await this.query<{
-    symbol: string
-    historical: FMPHistoricalPrice[]
-  }>(this.getEndpoint(`/v3/historical-price-full/${ticker}?from=1980-01-01`))
-  if (!response?.historical?.length) {
+  const response = await this.query<FMPHistoricalPrice[]>(
+    this.getStableEndpoint('/stable/historical-price-eod/full', {
+      symbol: ticker,
+      from: '1980-01-01',
+    })
+  )
+  if (!response?.length) {
     logger.warn('fmp > could not get historical prices', { ticker })
     return []
   }
-  return response.historical.map(toSecurityHistoricalPrice)
+  return response.map(toSecurityHistoricalPrice)
 }
 
 export { fmpHistoricalPrices }

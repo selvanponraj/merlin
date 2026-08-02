@@ -3,6 +3,7 @@ import { get } from 'lodash'
 import { dayjs } from '@helpers/dayjs'
 import { FMPLink } from '@links/fmp/link.fmp'
 import { SecurityFinancialResult } from '@links/types'
+import { logger } from '@logger'
 import { FinancialFreq, FinancialPeriod } from '@models/financial'
 import { FinancialBaseStatement, FinancialUnit } from '@models/financialItem'
 import {
@@ -13,35 +14,35 @@ import {
 export interface FMPAnalystEstimates {
   symbol: string
   date: string
-  estimatedRevenueLow: number
-  estimatedRevenueHigh: number
-  estimatedRevenueAvg: number
-  estimatedEbitdaLow: number
-  estimatedEbitdaHigh: number
-  estimatedEbitdaAvg: number
-  estimatedEbitLow: number
-  estimatedEbitHigh: number
-  estimatedEbitAvg: number
-  estimatedNetIncomeLow: number
-  estimatedNetIncomeHigh: number
-  estimatedNetIncomeAvg: number
-  estimatedSgaExpenseLow: number
-  estimatedSgaExpenseHigh: number
-  estimatedSgaExpenseAvg: number
-  estimatedEpsAvg: number
-  estimatedEpsHigh: number
-  estimatedEpsLow: number
-  numberAnalystEstimatedRevenue: number
-  numberAnalystsEstimatedEps: number
+  revenueLow: number
+  revenueHigh: number
+  revenueAvg: number
+  ebitdaLow: number
+  ebitdaHigh: number
+  ebitdaAvg: number
+  ebitLow: number
+  ebitHigh: number
+  ebitAvg: number
+  netIncomeLow: number
+  netIncomeHigh: number
+  netIncomeAvg: number
+  sgaExpenseLow: number
+  sgaExpenseHigh: number
+  sgaExpenseAvg: number
+  epsAvg: number
+  epsHigh: number
+  epsLow: number
+  numAnalystsRevenue: number
+  numAnalystsEps: number
 }
 
 const statementMap: Record<string, IncomeStatementKeys> = {
-  estimatedRevenueAvg: 'revenue',
-  estimatedEbitdaAvg: 'ebitda',
-  estimatedEbitAvg: 'ebit',
-  estimatedNetIncomeAvg: 'netIncome',
-  estimatedSgaExpenseAvg: 'generalAndAdministrativeExpenses',
-  estimatedEpsAvg: 'eps',
+  revenueAvg: 'revenue',
+  ebitdaAvg: 'ebitda',
+  ebitAvg: 'ebit',
+  netIncomeAvg: 'netIncome',
+  sgaExpenseAvg: 'generalAndAdministrativeExpenses',
+  epsAvg: 'eps',
 }
 
 const defaultUnit: FinancialUnit = FinancialUnit.millions
@@ -89,15 +90,30 @@ async function fmpAnalystEstimates(
   freq: FinancialFreq
 ): Promise<SecurityFinancialResult[]> {
   const periodComponents: Partial<Record<FinancialFreq, string>> = {
-    [FinancialFreq.Y]: 'year',
+    [FinancialFreq.Y]: 'annual',
     [FinancialFreq.Q]: 'quarter',
   }
-  const response = await this.query<FMPAnalystEstimates[]>(
-    this.getEndpoint(`/v3/analyst-estimates/${ticker}`, {
-      period: periodComponents[freq],
-    })
-  )
-  return response?.flatMap((item) => toSecurityFinancialResult(item, freq))
+  try {
+    const response = await this.query<FMPAnalystEstimates[]>(
+      this.getStableEndpoint('/stable/analyst-estimates', {
+        symbol: ticker,
+        period: periodComponents[freq],
+      })
+    )
+    if (!Array.isArray(response)) {
+      return []
+    }
+    return response.flatMap((item) => toSecurityFinancialResult(item, freq))
+  } catch (err) {
+    if (this.isRestrictedError(err)) {
+      logger.warn('fmp > analyst estimates endpoint/period is restricted', {
+        ticker,
+        freq,
+      })
+      return []
+    }
+    throw err
+  }
 }
 
 export { fmpAnalystEstimates }

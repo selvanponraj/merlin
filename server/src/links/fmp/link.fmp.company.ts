@@ -61,9 +61,19 @@ async function fmpBatchCompanyOverview(
   this: FMPLink,
   tickers: string[]
 ): Promise<SecurityCompanyOverviewResult[]> {
-  const response = await this.query<FMPCompanyOverview[]>(
-    this.getEndpoint(`/v3/profile/${tickers.join(',')}`)
-  )
+  const response = (
+    await Promise.all(
+      tickers.map(async (ticker) => {
+        const items = await this.query<FMPCompanyOverview[]>(
+          this.getStableEndpoint('/stable/profile', {
+            symbol: ticker,
+          })
+        )
+        return items?.shift()
+      })
+    )
+  ).filter(Boolean) as FMPCompanyOverview[]
+
   if (!response.length) {
     logger.warn('fmp > could not fetch security company overview', { tickers })
     return []

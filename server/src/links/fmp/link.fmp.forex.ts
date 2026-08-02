@@ -14,9 +14,19 @@ const toForexExchangeRateResult = (
 async function fmpExchangeRates(
   this: FMPLink
 ): Promise<ForexExchangeRateResult[]> {
-  const quotes = await this.query<FMPQuote[]>(
-    this.getEndpoint(`/v3/quotes/forex`)
-  )
+  let quotes: FMPQuote[] = []
+  try {
+    quotes = await this.query<FMPQuote[]>(
+      this.getStableEndpoint('/stable/batch-forex-quotes')
+    )
+  } catch (err) {
+    if (this.isRestrictedError(err)) {
+      logger.warn('fmp > forex quotes endpoint is restricted for current plan')
+      return []
+    }
+    throw err
+  }
+
   if (!quotes?.length) {
     logger.warn('fmp > exchangeRate > could not find forex quotes')
     return []

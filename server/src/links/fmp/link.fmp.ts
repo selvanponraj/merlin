@@ -73,6 +73,23 @@ class FMPLink
     })
   }
 
+  getStableEndpoint = (
+    path: string,
+    params: Record<string, string | undefined> = {}
+  ) => {
+    const url = new URL(path, 'https://financialmodelingprep.com/')
+
+    url.searchParams.append('apikey', config.get('datasource.fmp.key'))
+    Object.entries(params).forEach(([key, value]) => {
+      value && url.searchParams.append(key, value)
+    })
+
+    return url
+  }
+
+  isRestrictedError = (err: any) =>
+    err?.response?.statusCode === 403 || err?.response?.statusCode === 402
+
   static getSecurityType = (
     item: FMPSearch | FMPQuote | FMPCompanyOverview
   ): SecurityType => {

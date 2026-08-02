@@ -9,10 +9,12 @@ import { EarningTime } from '@models/earning'
 type FMPEarning = {
   date: string
   symbol: string
-  eps: number
+  eps?: number
+  epsActual?: number
   epsEstimated: number
   time: 'bmo' | 'amc'
-  revenue: number
+  revenue?: number
+  revenueActual?: number
   revenueEstimated: number
 }
 
@@ -76,12 +78,14 @@ const toEarningResult = (
 ): SecurityEarningResult => {
   const [fiscalQuarter, fiscalYear] = earningCall ?? []
   const epsSurprisePercent =
-    item.epsEstimated && item.eps
-      ? ((item.eps - item.epsEstimated) / Math.abs(item.epsEstimated)) * 100
+    item.epsEstimated && (item.epsActual ?? item.eps)
+      ? (((item.epsActual ?? item.eps ?? 0) - item.epsEstimated) /
+          Math.abs(item.epsEstimated)) *
+        100
       : null
   const revenueSurprisePercent =
-    item.revenueEstimated && item.revenue
-      ? ((item.revenue - item.revenueEstimated) /
+    item.revenueEstimated && (item.revenueActual ?? item.revenue)
+      ? (((item.revenueActual ?? item.revenue ?? 0) - item.revenueEstimated) /
           Math.abs(item.revenueEstimated)) *
         100
       : null
@@ -89,10 +93,10 @@ const toEarningResult = (
     date: item.date,
     fiscalYear: fiscalYear ?? null,
     fiscalQuarter: fiscalQuarter ?? null,
-    time: formatTime(item.time),
-    eps: item.eps,
-    epsEstimate: item.epsEstimated,
-    revenue: item.revenue ? item.revenue / 1e6 : null,
+    time: item.time ? formatTime(item.time) : null,
+    eps: item.epsActual ?? item.eps ?? null,
+    epsEstimate: item.epsEstimated ?? null,
+    revenue: (item.revenueActual ?? item.revenue) ? (item.revenueActual ?? item.revenue ?? 0) / 1e6 : null,
     revenueEstimate: item.revenueEstimated ? item.revenueEstimated / 1e6 : null,
     epsSurprisePercent,
     revenueSurprisePercent,
@@ -104,13 +108,11 @@ async function fmpEarnings(
   ticker: string
 ): Promise<SecurityEarningResult[]> {
   const earningDatesResponse = await this.query<FMPEarning[]>(
-    this.getEndpoint(`/v3/historical/earning_calendar/${ticker}`)
-  )
-  const earningCallsResponse = await this.query<FMPEarningCall[]>(
-    this.getEndpoint(`/v4/earning_call_transcript`, {
+    this.getStableEndpoint('/stable/earnings', {
       symbol: ticker,
     })
   )
+  const earningCallsResponse: FMPEarningCall[] = []
   if (!earningDatesResponse.length) {
     logger.warn('fmp > missing earning dates', { ticker })
     return []
@@ -126,12 +128,27 @@ async function fmpEarningCallTranscript(
   fiscalYear: number,
   fiscalQuarter: number
 ): Promise<string | undefined> {
-  const response = await this.query<FMPEarningCallTranscript[]>(
-    this.getEndpoint(`/v3/earning_call_transcript/${ticker}`, {
-      quarter: fiscalQuarter.toString(),
-      year: fiscalYear.toString(),
-    })
-  )
+  let response: FMPEarningCallTranscript[] = []
+  try {
+    response = await this.query<FMPEarningCallTranscript[]>(
+      this.getStableEndpoint('/stable/earning-call-transcript', {
+        symbol: ticker,
+        quarter: fiscalQuarter.toString(),
+        year: fiscalYear.toString(),
+      })
+    )
+  } catch (err) {
+    if (this.isRestrictedError(err)) {
+      logger.warn('fmp > earning call transcript endpoint is restricted', {
+        ticker,
+        fiscalYear,
+        fiscalQuarter,
+      })
+      return
+    }
+    throw err
+  }
+
   if (!response?.length) {
     logger.warn('fmp > missing earning call transcript', {
       ticker,

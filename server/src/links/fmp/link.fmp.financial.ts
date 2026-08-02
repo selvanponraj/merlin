@@ -165,11 +165,17 @@ const baseUrl = (
     [FinancialBaseStatement.cashFlowStatement]: 'cash-flow-statement',
   }
   const periodComponents: Partial<Record<FinancialFreq, string>> = {
-    [FinancialFreq.Y]: 'year',
+    [FinancialFreq.Y]: 'annual',
     [FinancialFreq.Q]: 'quarter',
   }
 
-  return `/v3/${statementComponents[statement]}/${ticker}?period=${periodComponents[freq]}`
+  return {
+    path: `/stable/${statementComponents[statement]}`,
+    params: {
+      symbol: ticker,
+      period: periodComponents[freq],
+    },
+  }
 }
 
 const fetchFinancialBaseStatement = async (
@@ -178,9 +184,8 @@ const fetchFinancialBaseStatement = async (
   freq: FinancialFreq,
   statement: FinancialBaseStatement
 ): Promise<FMPFinancial[]> => {
-  return link.query<FMPFinancial[]>(
-    link.getEndpoint(baseUrl(ticker, statement, freq))
-  )
+  const url = baseUrl(ticker, statement, freq)
+  return link.query<FMPFinancial[]>(link.getStableEndpoint(url.path, url.params))
 }
 
 async function fmpFinancials(

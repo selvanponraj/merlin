@@ -24,11 +24,12 @@ export const companyOverviewLink: CompanyOverviewLink = fmp
 export const extendedHoursQuotesLink: QuoteLink = seekingAlpha
 export const historicalPricesLink: HistoricalPriceLink = fmp
 export const forexLink: ForexLink = fmp
-export const newsLink: NewsLink | null =
-  config.get('datasource.fmp.plan') === 'premium' ? fmp : null
+// News is gated at the API level (402) and handled gracefully, safe to enable for all plans
+export const newsLink: NewsLink | null = fmp
 export const earningsLink: EarningLink =
   config.get('links.earnings') === 'fmp' ? fmp : yahooFinance
 export const financialsLink: FinancialLink =
   config.get('links.financials') === 'fmp' ? fmp : macrotrends
-export const analystEstimatesLink: AnalystEstimatesLink | null =
-  config.get('datasource.fmp.plan') === 'premium' ? fmp : null
+// Analyst estimates now work on the free plan with the stable API
+export const analystEstimatesLink: AnalystEstimatesLink | null = fmp
+

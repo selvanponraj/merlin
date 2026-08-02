@@ -14,7 +14,7 @@ const LogoutButton = () => {
 
   const logout = async () => {
     setIsLoading(true)
-    await auth.signout(auth.user.apiToken)
+    await auth.signout(auth.user?.apiToken)
     setIsLoading(false)
     navigate({ pathname: '/login' }, { replace: true })
   }
